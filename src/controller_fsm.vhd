@@ -39,7 +39,33 @@ end controller_fsm;
 
 architecture FSM of controller_fsm is
 
+signal state : std_logic_vector (3 downto 0) := "0001";
+
+
+
 begin
 
+process(i_reset,i_adv)
+
+begin
+
+    if i_reset = '1' then
+        state <= "0001";
+    
+    elsif i_adv = '1' then
+        case state is 
+            when "0001" => state <= "0010";
+            when "0010" => state <= "0100";
+            when "0100" => state <= "1000";
+            when "1000" => state <= "0001";
+            when others => state <= "0001";
+        end case;
+
+   end if;
+        
+        
+end process;
+
+o_cycle <= state;
 
 end FSM;
