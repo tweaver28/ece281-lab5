@@ -32,7 +32,9 @@ use IEEE.STD_LOGIC_1164.ALL;
 --use UNISIM.VComponents.all;
 
 entity controller_fsm is
-    Port ( i_reset : in STD_LOGIC;
+    Port ( 
+           clk : in std_logic;
+           i_reset : in STD_LOGIC;
            i_adv : in STD_LOGIC;
            o_cycle : out STD_LOGIC_VECTOR (3 downto 0));
 end controller_fsm;
@@ -45,9 +47,11 @@ signal state : std_logic_vector (3 downto 0) := "0001";
 
 begin
 
-process(i_reset,i_adv)
+process(clk)
 
 begin
+
+    if rising_edge(clk) then
 
     if i_reset = '1' then
         state <= "0001";
@@ -63,7 +67,7 @@ begin
 
    end if;
         
-        
+   end if;
 end process;
 
 o_cycle <= state;

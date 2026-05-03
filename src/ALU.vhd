@@ -56,24 +56,16 @@ begin
     A := signed(i_A);
     B := signed(i_B);
     F := (others => '0');
-    
-    F(0) := '0';
+
     case i_op is
         when "000" => --add
             R := resize(A,9) + resize(B,9);
-            if (A(7)=B(7)) and (R(7)/=A(7)) then
-                F(0) := '1';
-            else
-                F(0) := '0';
-            end if;
-        
+            F(0) := (not A(7) and not B(7) and R(7)) or (A(7) and B(7) and not R(7));
+           
+           
         when "001" => --sub
             R := resize(A,9) - resize(B,9);
-            if (A(7) /= B(7)) and (R(7) /= A(7)) then
-                F(0) := '1';
-            else
-                F(0) := '0';
-            end if;
+            F(0) := (A(7) and not B(7) and not R(7)) or (not A(7) and B(7) and R(7));
 
         
         when "010" => --and
@@ -86,16 +78,19 @@ begin
         
         when others =>
             R := (others => '0');
+            F(0) := '0';
 
             
     end case;
     
     F(3) := R(7);
-    if R = to_signed(0, 9) then
+    
+    if R(7 downto 0) = "00000000" then
         F(2) := '1';
     else
         F(2) := '0';
     end if;
+    
     F(1) := R(8); 
     
     

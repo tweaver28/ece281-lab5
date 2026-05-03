@@ -58,7 +58,9 @@ architecture top_basys3_arch of top_basys3 is
     end component;
     
     component controller_fsm
-    Port ( i_reset : in STD_LOGIC;
+    Port ( 
+           clk : in std_logic;
+           i_reset : in STD_LOGIC;
            i_adv : in STD_LOGIC;
            o_cycle : out STD_LOGIC_VECTOR (3 downto 0)
     );
@@ -72,11 +74,33 @@ architecture top_basys3_arch of top_basys3 is
     );
     end component;
     
+    component TDM4
+        port ( i_clk		: in  STD_LOGIC;
+           i_reset		: in  STD_LOGIC; -- asynchronous
+           i_D3 		: in  STD_LOGIC_VECTOR (3 downto 0);
+		   i_D2 		: in  STD_LOGIC_VECTOR (3 downto 0);
+		   i_D1 		: in  STD_LOGIC_VECTOR (3 downto 0);
+		   i_D0 		: in  STD_LOGIC_VECTOR (3 downto 0);
+		   o_data		: out STD_LOGIC_VECTOR (3 downto 0);
+		   o_sel		: out STD_LOGIC_VECTOR (3 downto 0)	-- selected data line (one-cold)
+	);
+    end component;
+    
     component sevenseg_decoder
     port ( 	i_hex    : in std_logic_vector (3 downto 0);
 			o_seg_n  : out std_logic_vector (6 downto 0)	
 	);
 	end component;
+	
+	component twos_comp
+	port (
+        i_bin: in std_logic_vector(7 downto 0);
+        o_sign: out std_logic;
+        o_hund: out std_logic_vector(3 downto 0);
+        o_tens: out std_logic_vector(3 downto 0);
+        o_ones: out std_logic_vector(3 downto 0)
+    );
+end component;
     
     signal cycle   : std_logic_vector (3 downto 0);
     signal op_A    : std_logic_vector (7 downto 0);
@@ -86,23 +110,22 @@ architecture top_basys3_arch of top_basys3 is
     signal db_btnC : std_logic;
     
     signal current_val : std_logic_vector(7 downto 0);
-    signal val_signed : signed(7 downto 0);
-    signal val_abs : unsigned(7 downto 0);
-    signal is_neg : std_logic;
     
+    signal sign : std_logic;
     signal ones : std_logic_vector(3 downto 0);
     signal tens : std_logic_vector(3 downto 0);
+    signal hund : std_logic_vector(3 downto 0);
     
-    signal refresh_cnt : unsigned(15 downto 0);
-    signal digit_sel : std_logic_vector(1 downto 0);
-    signal display : std_logic_vector(3 downto 0);
-    signal seg_int : std_logic_vector(6 downto 0);
-    
+    signal sign_digit : std_logic_vector(3 downto 0);
+    signal mux_digit : std_logic_vector(3 downto 0);
+    signal an_tdm : std_logic_vector(3 downto 0);
+    signal seg_real : std_logic_vector(6 downto 0);
   
 begin
 	-- PORT MAPS ----------------------------------------
     fsm_inst : controller_fsm
     port map (
+        clk => clk,
         i_reset => btnU,
         i_adv => db_btnC,
         o_cycle => cycle
@@ -124,15 +147,8 @@ begin
         o_result => result,
         o_flags  => flags
     );
-    
-    sevenseg_decoder_inst : entity work.sevenseg_decoder
-    port map (
-        i_hex    => display,
-	    o_seg_n  => seg_int  
-    );
+           
         
-    
-    
 	process(clk)
     begin
         if rising_edge(clk) then
@@ -151,57 +167,40 @@ begin
     current_val <= op_A when cycle = "0010" else 
                    op_B when cycle = "0100" else 
                    result;
-       
-    val_signed <= signed(current_val);
-    is_neg <= val_signed(7);
+           
+      
+	twos_comp_inst : twos_comp
+	port map (
+        i_bin => current_val,
+        o_sign => sign,
+        o_hund => hund,
+        o_tens => tens,
+        o_ones => ones
+    );
+           
+  sign_digit <= x"A" when sign = '1' else x"F";               
+  tdm4_inst : TDM4
+        port map (
+           i_clk => clk,
+           i_reset	=> btnU,
+           i_D3  => sign_digit,
+		   i_D2 	=> hund,
+		   i_D1 	=> tens,
+		   i_D0 	=> ones,
+		   o_data	=> mux_digit,
+		   o_sel	=> an_tdm
+	);
+
+    sevenseg_decoder_inst : sevenseg_decoder
+    port map (
+        i_hex    => mux_digit,
+	    o_seg_n  => seg_real
+    );
     
-    val_abs <= unsigned(-val_signed) when is_neg = '1'
-               else unsigned(val_signed);
+    seg <= seg_real;
     
-    ones <= std_logic_vector(to_unsigned(to_integer(val_abs) mod 10, 4));
-tens <= std_logic_vector(to_unsigned((to_integer(val_abs) / 10) mod 10, 4));
-    
-    process(clk)
-    begin  
-        if rising_edge(clk) then
-            if btnU = '1' then
-                refresh_cnt <= (others => '0');
-            else
-                refresh_cnt <= refresh_cnt + 1;
-            end if;
-        end if;
-    end process;
-    
-    digit_sel <= std_logic_vector(refresh_cnt(15 downto 14));
-    
-    process(digit_sel, ones, tens, is_neg)
-    begin   
-        an <= "1111";
-        seg <= "1111111";
-        display <= (others => '0');
-        case digit_sel is
-            when "00" =>
-                an <= "1110";
-                display <= ones;
-                seg <= seg_int;
-            when "01" =>
-                an <= "1101";
-                display <= tens;
-                seg <= seg_int;
-           when "10" =>
-                an <= "1011";
-                if is_neg = '1' then
-                    seg <= "1111110";
-                else
-                    seg <= "1111111";
-                end if;
-           when others => 
-                an <= "0111";
-                seg <= "1111111";
-            
-    end case;
-  end process;              
-              
+ 
+   
 	
 	-- CONCURRENT STATEMENTS ----------------------------
 	led (3 downto 0) <= cycle;
