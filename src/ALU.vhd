@@ -45,57 +45,76 @@ begin
 
 process(i_A,i_B,i_op)
 
-    variable A : signed(7 downto 0);
-    variable B : signed(7 downto 0);
-    variable R : signed(8 downto 0);
+    variable A_u : unsigned(7 downto 0);
+    variable B_u : unsigned(7 downto 0);
+    variable R_u : unsigned(8 downto 0);
+    variable A_s : signed(7 downto 0);
+    variable B_s : signed(7 downto 0);
+    variable R_s : signed(8 downto 0);
     variable F : std_logic_vector(3 downto 0);
 
 
 begin
 
-    A := signed(i_A);
-    B := signed(i_B);
+    A_s := signed(i_A);
+    B_s := signed(i_B);
+    A_u := unsigned(i_A);
+    B_u := unsigned(i_B);
     F := (others => '0');
 
     case i_op is
         when "000" => --add
-            R := resize(A,9) + resize(B,9);
-            F(0) := (not A(7) and not B(7) and R(7)) or (A(7) and B(7) and not R(7));
-           
+            R_u := ('0' & A_u) + ('0' & B_u);
+            R_s := resize(A_s,9) + resize(B_s,9);
+            F(1) := R_u(8);
+            if (A_s(7) = B_s(7)) and (R_s(8) /= A_s(7)) then
+                F(0) := '1';
+            else
+                F(0) := '0';
+            end if;
            
         when "001" => --sub
-            R := resize(A,9) - resize(B,9);
-            F(0) := (A(7) and not B(7) and not R(7)) or (not A(7) and B(7) and R(7));
+            R_u := ('0' & A_u) - ('0' & B_u);
+            R_s := resize(A_s, 9) - resize(B_s, 9);
+            if A_u >= B_u then 
+                F(1) := '1';
+            else
+                F(1) := '0';
+           end if;
+           if (A_s(7) /= B_s(7)) and (R_s(8) /= A_s(7)) then
+                F(0) := '1';
+            else
+                F(0) := '0';
+            end if;
+            
 
         
         when "010" => --and
-            R := resize(signed(i_A and i_B), 9);
+            R_u := '0' & (A_u and B_u);
+            F(1) := '0';
             F(0) := '0';
         
         when "011" => --or
-            R := resize(signed(i_A or i_B), 9);
+            R_u := '0' & (A_u or B_u);
+            F(1) := '0';
             F(0) := '0';
         
         when others =>
-            R := (others => '0');
-            F(0) := '0';
+            R_u := (others => '0');
+            F := (others => '0');
 
             
     end case;
     
-    F(3) := R(7);
+    F(3) := R_u(7);
     
-    if R(7 downto 0) = "00000000" then
+    if R_u(7 downto 0) = "00000000" then
         F(2) := '1';
     else
         F(2) := '0';
-    end if;
-    
-    F(1) := R(8); 
-    
-    
+    end if;    
 
-    o_result <= std_logic_vector(R(7 downto 0));
+    o_result <= std_logic_vector(R_u(7 downto 0));
     o_flags <= F;
 
 end process;
