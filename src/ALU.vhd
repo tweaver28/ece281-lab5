@@ -81,7 +81,7 @@ begin
             else
                 F(1) := '0';
            end if;
-           if (A_s(7) /= B_s(7)) and (R_s(8) /= A_s(7)) then
+            if (A_s(7) /= B_s(7)) and ((R_u(7) xor A_s(7)) = '1') then
                 F(0) := '1';
             else
                 F(0) := '0';
