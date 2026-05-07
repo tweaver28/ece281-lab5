@@ -172,9 +172,9 @@ begin
         port map (
             i_clk   => clk,
             i_reset => btnU,
-            i_D3    => sign_digit,
-            i_D2    => hund,
-            i_D1    => tens,
+            i_D3    => "0000",
+            i_D2    => "0000",
+            i_D1    => "0000",
             i_D0    => ones,
             o_data  => mux_digit,
             o_sel   => an_tdm
